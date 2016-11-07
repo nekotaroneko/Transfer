@@ -11,6 +11,7 @@ import shutil
 import threading
 import time
 import requests
+import json
 import SimpleHTTPServer
 
 def is_pythonista():
@@ -371,6 +372,177 @@ def file_picker():
 	
 	
 #-----------------------Main Code--------------------
+
+class Transfer(object):
+	def __init__(self, main_dir, port):
+		self.comment_dict = {}
+		self.port = port
+		self.main_dir = main_dir
+		self.send_path = to_abs_path(main_dir, "SendFile.zip")
+		self.receive_path = to_abs_path(main_dir, "ReceiveFile.zip")
+		self.comment_dict['send_path'] = self.send_path #to multiply file size
+		self.comment_dict['receive_path'] = self.receive_path #to multiply file size
+		if os.path.isfile(self.send_path):
+			os.remove(self.send_path)
+		
+	def send(self, file_list):
+		print('Archiving files.....')
+		if pythonista:
+			self.comment_dict['sender_is_pythonista'] = True
+		else:
+			self.comment_dict['sender_is_pythonista'] = False
+		comment_str = json.dumps(self.comment_dict)
+		archiver(file_list, True, self.send_path, comment_str)
+	
+		self.start_server() 
+		
+	def receive(self, wait_time, show_text=True):
+		main_dir = self.main_dir
+
+		if os.path.isfile(self.receive_path):
+			os.remove(self.receive_path)
+			
+		try:
+			while True:
+				if show_text: print 'Detecting Server.....'
+				result = port_scan.scan()
+				if result:
+					IP = result
+					break
+				if show_text: print('waiting for {}s'.format(wait_time))
+				time.sleep(wait_time)
+		except KeyboardInterrupt:
+			raise KeyboardInterrupt
+			
+		d = datetime.datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+		to_extract_path = to_abs_path(main_dir,d)
+		
+		print 'Detected!!\nServer IP is ' + IP
+		target_url = 'http://{}:{}/{}'.format(IP, port, os.path.relpath(self.send_path, to_abs_path()))
+		downloader(target_url, self.receive_path)
+		print('\n-----Detailed Log-----\n')
+		if os.path.exists(self.receive_path):
+			if pythonista:
+				console.hud_alert('Transfer Completed!!')
+			if not os.path.isdir(to_extract_path):
+				os.makedirs(to_extract_path)
+			zip = zipfile.ZipFile(self.receive_path)
+			receive_comment_dict = json.loads(zip.comment)
+			zip.extractall(to_extract_path)
+			os.remove(self.receive_path)
+			
+			if 'share_text' in receive_comment_dict:
+				share_text = receive_comment_dict['share_text']
+				if pythonista:
+					clipboard.set(share_text)
+					console.hud_alert('Copied to clipboard')
+				else:
+					print('Share text "{}"'.format(share_text))
+				
+			
+				
+			elif receive_comment_dict['sender_is_pythonista'] and pythonista:
+				if console.alert("Transfer","Move to original path?","No","Yes",hide_cancel_button=True) == 2:
+					file_list = [ ( to_abs_path(os.path.relpath(x, to_extract_path)), x ) for x in return_all_file(to_extract_path) ]
+					total_file_list = [] #file not dir
+					
+					#print file_list
+					replace_list = []
+					for original_path, transfer_path in file_list:
+						if os.path.isfile(original_path):
+							replace_list.append([original_path, transfer_path])
+							
+						if os.path.isdir(transfer_path):
+							if not os.path.isdir(original_path):
+								os.makedirs(original_path)
+								print 'dir {} was made'.format(os.path.relpath(original_path, to_abs_path()))
+								
+								
+						else:
+							if not os.path.isfile(original_path):
+								shutil.move(transfer_path, original_path)
+								print 'moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path()))
+								total_file_list.append(original_path)
+								
+					if not len(replace_list) == 0 and console.alert("Transfer","Following files will be replaced.\n{}".format('\n'.join([os.path.relpath(x, to_abs_path()) for x,y in replace_list])),"No","OK",hide_cancel_button=True) == 2:
+						for original_path, transfer_path in replace_list:
+							os.remove(original_path)
+							print('{} was removed'.format(os.path.relpath(original_path, to_abs_path())))
+							shutil.move(transfer_path, original_path)
+							print 'moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path()))
+							total_file_list.append(original_path)
+							
+					removeEmptyFolders(to_extract_path, True)
+					if len(total_file_list) == 1:
+						ab_file_path = total_file_list[0]
+						re_file_path = os.path.relpath(ab_file_path, to_abs_path())
+						if console.alert("",'Do you want to open {}?'.format(re_file_path),"No","Yes",hide_cancel_button=True) == 2:
+							editor.open_file(ab_file_path, True)
+							
+		else:
+			console.alert("","{} is not found".format(self.receive_path),"OK",hide_cancel_button=True)
+	
+	def start_server(self):
+		def do_GET(self):
+			"""Serve a GET request."""
+			f = self.send_head()
+			if f:
+				try:
+					self.copyfile(f, self.wfile)
+				finally:
+					f.close()
+					t = threading.Thread(target = self.server.shutdown)
+					t.daemon = True
+					t.start()
+					print('File transfer seems to be completed.Server is shutdowning.....')
+					
+		def translate_path(self, path):
+			"""Translate a /-separated PATH to the local filename syntax.
+			
+			Components that mean special things to the local file system
+			(e.g. drive or directory names) are ignored.  (XXX They should
+			probably be diagnosed.)
+			
+			"""
+			import posixpath
+			import urllib
+			# abandon query parameters
+			path = path.split('?',1)[0]
+			path = path.split('#',1)[0]
+			# Don't forget explicit trailing slash when normalizing. Issue17324
+			trailing_slash = path.rstrip().endswith('/')
+			path = posixpath.normpath(urllib.unquote(path))
+			words = path.split('/')
+			words = filter(None, words)
+			path = to_abs_path()
+			for word in words:
+				if os.path.dirname(word) or word in (os.curdir, os.pardir):
+				# Ignore components that are not a simple file/directory name
+					continue
+				path = os.path.join(path, word)
+			if trailing_slash:
+				path += '/'
+			return path
+			
+		print('Starting Server.....')
+		SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET = do_GET
+		SimpleHTTPServer.SimpleHTTPRequestHandler.translate_path = translate_path
+		try:
+			server = SimpleHTTPServer.BaseHTTPServer.HTTPServer(('', self.port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+		except:
+			print('Server has already started')
+		else:
+			thread = threading.Thread(target = server.serve_forever,name='server')
+			thread.deamon = True
+			thread.start()
+			thread.join()
+			os.remove(self.send_path)
+			
+	def send_text(self, share_text):
+		print('Sending the text\n"{}"'.format(share_text))
+		self.comment_dict['share_text'] = share_text
+		self.send([])
+
 def search_all_file(dir_list):
 	path_pat = re.compile('.+?Documents')
 	file_list = []
@@ -415,33 +587,13 @@ def removeEmptyFolders(path, removeRoot=True):
 		#print "Removing empty folder:", path
 		os.rmdir(path)
 		
-def get_ip():
-	if pythonista:
-		try:
-			from objc_util import ObjCClass
-			NSHost = ObjCClass('NSHost')
-			addresses = []
-			for address in NSHost.currentHost().addresses():
-				address = str(address)
-				if 48 <= ord(address[0]) <= 57 and address != '127.0.0.1':
-					addresses.append(address)
-			#return '   '.join(addresses)
-			return addresses[-1]
-			
-		except ImportError:
-			return ''
-	else:
-		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		s.connect(("8.8.8.8",80))
-		ip = s.getsockname()[0]
-		s.close()
-		return ip
+
 		
 class Port_Scan(object):
 	def __init__(self, port, alert=True):
 		self.port = port
 		self.alert = alert
-		self.current_ip = get_ip()
+		self.current_ip = self.get_ip()
 		print('This device IP is {}'.format(self.current_ip))
 		self.thread_limit = threading.Semaphore(100)
 		
@@ -487,6 +639,28 @@ class Port_Scan(object):
 			console.hide_activity()
 		return self.result
 		
+	def get_ip(self):
+		if pythonista:
+			try:
+				from objc_util import ObjCClass
+				NSHost = ObjCClass('NSHost')
+				addresses = []
+				for address in NSHost.currentHost().addresses():
+					address = str(address)
+					if 48 <= ord(address[0]) <= 57 and address != '127.0.0.1':
+						addresses.append(address)
+				#return '   '.join(addresses)
+				return addresses[-1]
+				
+			except ImportError:
+				return ''
+		else:
+			s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			s.connect(("8.8.8.8",80))
+			ip = s.getsockname()[0]
+			s.close()
+			return ip
+		
 		
 def downloader(url, file_path, progress=True):
 	_file_path = os.path.basename(file_path)
@@ -509,7 +683,8 @@ def downloader(url, file_path, progress=True):
 					sys.stdout.write("\r[{}{}] {}％".format('=' * done, ' ' * (50-done), percent) )
 					sys.stdout.flush()
 					
-					
+
+		
 def archiver(files, hide=False, to_path=False, comment=None):
 	if not to_path:
 		to_path = os.path.basename(files[0])+'.zip'
@@ -523,167 +698,6 @@ def archiver(files, hide=False, to_path=False, comment=None):
 				print("adding "+name)
 			zf.write(path,name)
 			
-			
-def start_server():
-	def do_GET(self):
-		"""Serve a GET request."""
-		f = self.send_head()
-		if f:
-			try:
-				self.copyfile(f, self.wfile)
-			finally:
-				f.close()
-				t = threading.Thread(target = self.server.shutdown)
-				t.daemon = True
-				t.start()
-				print('File transfer seems to be completed.Server is shutdowning.....')
-				
-	def translate_path(self, path):
-		"""Translate a /-separated PATH to the local filename syntax.
-		
-		Components that mean special things to the local file system
-		(e.g. drive or directory names) are ignored.  (XXX They should
-		probably be diagnosed.)
-		
-		"""
-		import posixpath
-		import urllib
-		# abandon query parameters
-		path = path.split('?',1)[0]
-		path = path.split('#',1)[0]
-		# Don't forget explicit trailing slash when normalizing. Issue17324
-		trailing_slash = path.rstrip().endswith('/')
-		path = posixpath.normpath(urllib.unquote(path))
-		words = path.split('/')
-		words = filter(None, words)
-		path = to_abs_path()
-		for word in words:
-			if os.path.dirname(word) or word in (os.curdir, os.pardir):
-			# Ignore components that are not a simple file/directory name
-				continue
-			path = os.path.join(path, word)
-		if trailing_slash:
-			path += '/'
-		return path
-		
-	print('Starting Server.....')
-	SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET = do_GET
-	SimpleHTTPServer.SimpleHTTPRequestHandler.translate_path = translate_path
-	try:
-		server = SimpleHTTPServer.BaseHTTPServer.HTTPServer(('', port), SimpleHTTPServer.SimpleHTTPRequestHandler)
-	except:
-		print('Server has already started')
-	else:
-		thread = threading.Thread(target = server.serve_forever,name='server')
-		thread.deamon = True
-		thread.start()
-		thread.join()
-		os.remove(send_path)
-		
-def send(file_list):
-	print('Archiving files.....')
-	if pythonista:
-		comment = 'Sender is pythonista'
-	else:
-		comment = 'Sender is not pythonista'
-	archiver(file_list, True, send_path, comment)
-
-	start_server()
-	
-	
-def receive(wait_time, text=True):
-
-	if os.path.isfile(receive_path):
-		os.remove(receive_path)
-		
-	try:
-		while True:
-			if text: print 'Detecting Server.....'
-			result = port_scan.scan()
-			if result:
-				IP = result
-				break
-			if text: print('waiting for {}s'.format(wait_time))
-			time.sleep(wait_time)
-	except KeyboardInterrupt:
-		raise KeyboardInterrupt
-		
-	d = datetime.datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-	to_extract_path = to_abs_path(main_dir,d)
-	
-	print 'Detected!!\nServer IP is ' + IP
-	target_url = 'http://{}:{}/{}'.format(IP, port, os.path.relpath(send_path, to_abs_path()))
-	downloader(target_url, receive_path)
-	print('\n-----Detailed Log-----\n')
-	if os.path.exists(receive_path):
-		if pythonista:
-			console.hud_alert('Transfer Completed!!')
-		if not os.path.isdir(to_extract_path):
-			os.makedirs(to_extract_path)
-		zip = zipfile.ZipFile(receive_path)
-		comment = zip.comment
-		zip.extractall(to_extract_path)
-		os.remove(receive_path)
-		
-		if comment == 'Sender is pythonista':
-			sender_is_pyhonista = True
-		else:
-			sender_is_pyhonista = False
-		
-		share_text_path = os.path.join(to_extract_path, 'Transfer', 'Transfer_Share_Text.txt')
-		if os.path.isfile(share_text_path):
-			f = open(share_text_path, 'r')
-			share_text = f.read()
-			f.close()
-			if pythonista:
-				clipboard.set(share_text)
-				console.hud_alert('Copied to clipboard')
-			else:
-				print('Share text "{}"'.format(share_text))
-			os.remove(share_text_path)
-			removeEmptyFolders(to_extract_path, True)
-		
-			
-		elif sender_is_pyhonista and pythonista:
-			if console.alert("Transfer","Move to original path?","No","Yes",hide_cancel_button=True) == 2:
-				file_list = [ ( to_abs_path(os.path.relpath(x, to_extract_path)), x ) for x in return_all_file(to_extract_path) ]
-				total_file_list = [] #file not dir
-				
-				#print file_list
-				replace_list = []
-				for original_path, transfer_path in file_list:
-					if os.path.isfile(original_path):
-						replace_list.append([original_path, transfer_path])
-						
-					if os.path.isdir(transfer_path):
-						if not os.path.isdir(original_path):
-							os.makedirs(original_path)
-							print 'dir {} was made'.format(os.path.relpath(original_path, to_abs_path()))
-							
-							
-					else:
-						if not os.path.isfile(original_path):
-							shutil.move(transfer_path, original_path)
-							print 'moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path()))
-							total_file_list.append(original_path)
-							
-				if not len(replace_list) == 0 and console.alert("Transfer","Following files will be replaced.\n{}".format('\n'.join([os.path.relpath(x, to_abs_path()) for x,y in replace_list])),"No","OK",hide_cancel_button=True) == 2:
-					for original_path, transfer_path in replace_list:
-						os.remove(original_path)
-						print('{} was removed'.format(os.path.relpath(original_path, to_abs_path())))
-						shutil.move(transfer_path, original_path)
-						print 'moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path()))
-						total_file_list.append(original_path)
-						
-				removeEmptyFolders(to_extract_path, True)
-				if len(total_file_list) == 1:
-					ab_file_path = total_file_list[0]
-					re_file_path = os.path.relpath(ab_file_path, to_abs_path())
-					if console.alert("",'Do you want to open {}?'.format(re_file_path),"No","Yes",hide_cancel_button=True) == 2:
-						editor.open_file(ab_file_path, True)
-						
-	else:
-		console.alert("","{} is not found".format(receive_path),"OK",hide_cancel_button=True)
 		
 def select():
 	result = console.alert("","Select","Send","Receive",'Cancel', hide_cancel_button=True)
@@ -691,19 +705,12 @@ def select():
 	if result == 1:
 		files = file_picker()('Pick files', multiple=True, select_dirs=True, file_pattern=r'^.+$')
 		if files:
-			send(files)
+			transfer.send(files)
 			
 	elif result == 2:
-		receive(5)
+		transfer.receive(5)
 		
-def send_text(share_text):
-	share_text_path = os.path.join(main_dir,"Transfer_Share_Text.txt")
-	print('Sending the text\n"{}"'.format(share_text))
-	f = open(share_text_path, 'w')
-	f.write(share_text)
-	f.close()
-	send([share_text_path])
-	os.remove(share_text_path)
+
 	
 def get_selected_text():
 	if appex.is_running_extension():
@@ -720,7 +727,7 @@ def start_up():
 	'''always receive mode'''
 	def _start_up():
 		while True:
-			receive(5, False)
+			transfer.receive(5, False)
 	console.hide_output()
 	print 'Ready to receive.....'
 	threading.Thread(target=_start_up, name='Transfer_Startup').start()
@@ -730,8 +737,6 @@ main_dir = "Transfer"
 port = 8765
 main_dir = to_abs_path(main_dir)
 
-send_path = to_abs_path(main_dir,"SendFile.zip")
-receive_path = to_abs_path(main_dir,"ReceiveFile.zip")
 
 if pythonista:
 	console.clear()
@@ -740,8 +745,7 @@ if not os.path.isdir(main_dir):
 	os.makedirs(main_dir)
 	
 	
-if os.path.isfile(send_path):
-	os.remove(send_path)
+transfer = Transfer(main_dir, port)
 port_scan = Port_Scan(port,False)
 
 if __name__ == '__main__':
@@ -754,22 +758,22 @@ if __name__ == '__main__':
 		elif len(args) > 1 and args[1] == 'send':
 			files = file_picker()('Pick files', multiple=True, select_dirs=True, file_pattern=r'^.+$')
 			if files:
-				send(files)
+				transfer.send(files)
 				
 		elif len(args) > 1 and args[1] == 'receive':
-			receive(5)
+			transfer.receive(5)
 			
 		elif len(args) > 1 and args[1] == 'send_selected_or_clipboard_text':
 			share_text = get_selected_text()
 			if not share_text:
 				share_text = clipboard.get()
-			send_text(share_text)
+			transfer.send_text(share_text)
 			
 			
 		elif len(args) > 1:
 			files = args[1:]
 			print files
-			send(files)
+			transfer.send(files)
 			
 		else:
 			if appex.is_running_extension():
@@ -782,30 +786,34 @@ if __name__ == '__main__':
 					if len(path) == 1 and not os.path.isfile(path[0]):
 						share_text = path[0]
 						if console.alert("Transfer","Do you want to share this text?\n{}".format(share_text),"No","Yes", hide_cancel_button=True) == 2:
-							send_text(share_text)
+							transfer.send_text(share_text)
 					else:
-						send(path)
+						transfer.send(path)
 						
 			else:
 				share_text = get_selected_text()
 				if share_text:
 					if console.alert("Transfer","Do you want to share this text?\n{}".format(share_text),"No","Yes", hide_cancel_button=True) == 2:
-						send_text(share_text)
+						transfer.send_text(share_text)
 				else:
 					select()
 	else:
 		if len(args) > 1:
 			files = args[1:]
 			print files
-			send(files)
+			transfer.send(files)
 			
 		else:
 			print('Dir {}'.format(main_dir))
-			print('1 : Send\n2 : Receive')
+			print('1 : Send file\n2 : Receive file or text\n3 : Share text')
 			result = raw_input()
 			if result == '1':
 				print('Path')
 				path = raw_input().strip().strip("'")
-				send([path])
+				transfer.send([path])
 			elif result == '2':
-				receive(5, True)
+				transfer.receive(5, True)
+			elif result == '3':
+				print('Text')
+				text = raw_input()
+				transfer.send_text(text)
