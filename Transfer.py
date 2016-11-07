@@ -722,7 +722,7 @@ def start_up():
 		while True:
 			receive(5, False)
 	console.hide_output()
-	print 'Receiving.....'
+	print 'Ready to receive.....'
 	threading.Thread(target=_start_up, name='Transfer_Startup').start()
 	
 	
@@ -809,4 +809,3 @@ if __name__ == '__main__':
 				send([path])
 			elif result == '2':
 				receive(5, True)
-
