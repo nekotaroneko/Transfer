@@ -24,7 +24,27 @@ Transfer.start_up()
 ~~~~
 
 #How to set up
-See video
+1.Make three shortcuts
+Run script : Transfer.py
+A.
+Argumets :
+Title : Send this file
+
+B.
+Arguments : send_selected_or_clipboard_text
+Title : Send text
+
+C.
+Arguments : receive
+Title : Receive
+
+2.Make two Extension Shortcuts
+A.
+Arguments : 
+Title : Send this file/text
+
+B.
+Arguments : send_selected_or_clipboard_text
+Title : Send clipboard text
 
 #How to use 
-See video
