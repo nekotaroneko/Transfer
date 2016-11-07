@@ -808,12 +808,13 @@ if __name__ == '__main__':
 			print('1 : Send file\n2 : Receive file or text\n3 : Share text')
 			result = raw_input()
 			if result == '1':
-				print('Path')
+				print('You can also use Transfer.py file1 file2 file3...')
+				print('Path>>')
 				path = raw_input().strip().strip("'")
 				transfer.send([path])
 			elif result == '2':
 				transfer.receive(5, True)
 			elif result == '3':
-				print('Text')
+				print('Text>>')
 				text = raw_input()
 				transfer.send_text(text)
