@@ -30,6 +30,7 @@ if pythonista:
 		import editor
 		
 def stash_installer():
+	'''this function is not used in this script'''
 	try:
 		from stash.stash import StaSh
 	except:
@@ -438,7 +439,7 @@ class Transfer(object):
 					console.hud_alert('Copied to clipboard')
 				else:
 					print('Share text "{}"'.format(share_text))
-				
+				removeEmptyFolders(to_extract_path, True)
 			
 				
 			elif receive_comment_dict['sender_is_pythonista'] and pythonista:
@@ -640,27 +641,51 @@ class Port_Scan(object):
 		return self.result
 		
 	def get_ip(self):
-		if pythonista:
-			try:
-				from objc_util import ObjCClass
-				NSHost = ObjCClass('NSHost')
-				addresses = []
-				for address in NSHost.currentHost().addresses():
-					address = str(address)
-					if 48 <= ord(address[0]) <= 57 and address != '127.0.0.1':
-						addresses.append(address)
-				#return '   '.join(addresses)
-				return addresses[-1]
-				
-			except ImportError:
-				return ''
-		else:
+		try:
 			s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			s.connect(("8.8.8.8",80))
 			ip = s.getsockname()[0]
 			s.close()
 			return ip
-		
+		except:
+			#offline
+			if pythonista:
+				try:
+					from objc_util import ObjCClass
+					NSHost = ObjCClass('NSHost')
+					addresses = []
+					for address in NSHost.currentHost().addresses():
+						address = str(address)
+						if 48 <= ord(address[0]) <= 57 and address != '127.0.0.1':
+							addresses.append(address)
+					#return '   '.join(addresses)
+					return addresses[-1]
+					
+				except ImportError:
+					return ''
+			else:
+				#PC
+				import subprocess
+				try:
+					result = subprocess.check_output('ifconfig en0 |grep -w inet', shell=True)
+				except:
+					result = subprocess.check_output('ifconfig eth0 |grep -w inet', shell=True)
+				ip = ''
+				if result:
+					strs = result.split('\n')
+					for line in strs:
+						# remove \t, space...
+						line = line.strip()
+						if line.startswith('inet '):
+							a = line.find(' ')
+							ipStart = a+1
+							ipEnd = line.find(' ', ipStart)
+							if a != -1 and ipEnd != -1:
+								ip = line[ipStart:ipEnd]
+								break
+				
+					return ip
+	
 		
 def downloader(url, file_path, progress=True):
 	_file_path = os.path.basename(file_path)
