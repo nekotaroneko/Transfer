@@ -61,24 +61,6 @@ def file_picker():
 	from operator import attrgetter
 	import functools
 	import ftplib
-	
-	# http://stackoverflow.com/a/6547474
-	def human_size(size_bytes):
-		'''Helper function for formatting human-readable file sizes'''
-		if size_bytes == 1:
-			return "1 byte"
-		suffixes_table = [('bytes',0),('KB',0),('MB',1),('GB',2),('TB',2), ('PB',2)]
-		num = float(size_bytes)
-		for suffix, precision in suffixes_table:
-			if num < 1024.0:
-				break
-			num /= 1024.0
-		if precision == 0:
-			formatted_size = "%d" % num
-		else:
-			formatted_size = str(round(num, ndigits=precision))
-		return "%s %s" % (formatted_size, suffix)
-		
 		
 	class TreeNode (object):
 		def __init__(self):
@@ -152,28 +134,6 @@ def file_picker():
 				
 			self.expanded = True
 			self.children = sorted(children, key=attrgetter('leaf', 'cmp_title'))
-			
-	# Just a simple demo of a custom TreeNode class... The TreeDialogController should be initialized with async_mode=True when using this class.
-	class FTPTreeNode (TreeNode):
-		def __init__(self, host, path=None, level=0):
-			TreeNode.__init__(self)
-			self.host = host
-			self.path = path
-			self.level = level
-			if path:
-				self.title = os.path.split(path)[1]
-			else:
-				self.title = self.host
-			self.leaf = path and len(os.path.splitext(path)[1]) > 0
-			self.icon_name = 'FileOther' if self.leaf else 'Folder'
-			
-		def expand_children(self):
-			ftp = ftplib.FTP(self.host, timeout=10)
-			ftp.login('anonymous')
-			names = ftp.nlst(self.path or '')
-			ftp.quit()
-			self.children = [FTPTreeNode(self.host, name, self.level+1) for name in names]
-			self.expanded = True
 			
 	class TreeDialogController (object):
 		def __init__(self, root_node, allow_multi=False, async_mode=False):
@@ -371,6 +331,22 @@ def file_picker():
 	return file_picker_dialog
 	#File Picker
 	
+# http://stackoverflow.com/a/6547474
+def human_size(size_bytes):
+	'''Helper function for formatting human-readable file sizes'''
+	if size_bytes == 1:
+		return "1 byte"
+	suffixes_table = [('bytes',0),('KB',0),('MB',1),('GB',2),('TB',2), ('PB',2)]
+	num = float(size_bytes)
+	for suffix, precision in suffixes_table:
+		if num < 1024.0:
+			break
+		num /= 1024.0
+	if precision == 0:
+		formatted_size = "%d" % num
+	else:
+		formatted_size = str(round(num, ndigits=precision))
+	return "%s%s" % (formatted_size, suffix)
 	
 #-----------------------Main Code--------------------
 
@@ -443,7 +419,7 @@ class Transfer(object):
 			
 				
 			elif receive_comment_dict['sender_is_pythonista'] and pythonista:
-				if console.alert("Transfer","Move to original path?","No","Yes",hide_cancel_button=True) == 2:
+				if console.alert("Transfer","Sender seems to be Pythonista\nMove to original path?","No","Yes",hide_cancel_button=True) == 2:
 					file_list = [ ( to_abs_path(os.path.relpath(x, to_extract_path)), x ) for x in return_all_file(to_extract_path) ]
 					total_file_list = [] #file not dir
 					
@@ -477,11 +453,11 @@ class Transfer(object):
 					if len(total_file_list) == 1:
 						ab_file_path = total_file_list[0]
 						re_file_path = os.path.relpath(ab_file_path, to_abs_path())
-						if console.alert("",'Do you want to open {}?'.format(re_file_path),"No","Yes",hide_cancel_button=True) == 2:
+						if console.alert("Transfer",'Do you want to open {}?'.format(re_file_path),"No","Yes",hide_cancel_button=True) == 2:
 							editor.open_file(ab_file_path, True)
 							
 		else:
-			console.alert("","{} is not found".format(self.receive_path),"OK",hide_cancel_button=True)
+			console.alert("Transfer","{} is not found".format(self.receive_path),"OK",hide_cancel_button=True)
 	
 	def start_server(self):
 		def do_GET(self):
@@ -595,6 +571,7 @@ class Port_Scan(object):
 		self.port = port
 		self.alert = alert
 		self.current_ip = self.get_ip()
+		assert self.current_ip, 'Cannot find IP'
 		print('This device IP is {}'.format(self.current_ip))
 		self.thread_limit = threading.Semaphore(100)
 		
@@ -669,7 +646,10 @@ class Port_Scan(object):
 				try:
 					result = subprocess.check_output('ifconfig en0 |grep -w inet', shell=True)
 				except:
-					result = subprocess.check_output('ifconfig eth0 |grep -w inet', shell=True)
+					try:
+						result = subprocess.check_output('ifconfig eth0 |grep -w inet', shell=True)
+					except:
+						return False
 				ip = ''
 				if result:
 					strs = result.split('\n')
@@ -687,7 +667,7 @@ class Port_Scan(object):
 					return ip
 	
 		
-def downloader(url, file_path, progress=True):
+def downloader(url, file_path, progress=True, style=1):
 	_file_path = os.path.basename(file_path)
 	with open(file_path, "wb") as f:
 		print "Downloading %s" % _file_path
@@ -699,15 +679,40 @@ def downloader(url, file_path, progress=True):
 		else:
 			dl = 0
 			total_length = int(total_length)
+			dl_time = time.time()
+			dl_speed = 0
+			dl_size_per_sec = 0
+			one_sec_passed = False
+			eta = 0
 			for data in response.iter_content(chunk_size=total_length/100):
 				dl += len(data)
 				f.write(data)
 				done = int(50 * dl / total_length)
 				percent = int(100 * dl / total_length )
-				if progress:
-					sys.stdout.write("\r[{}{}] {}％".format('=' * done, ' ' * (50-done), percent) )
-					sys.stdout.flush()
+				dl_size_per_sec += len(data)
+				if time.time() - dl_time >= 1:
+					#to get dl speed
+					dl_time = time.time()
+					dl_speed = human_size(dl_size_per_sec)
+					eta = (total_length - dl)/dl_size_per_sec
+					dl_size_per_sec = 0
+					one_sec_passed = True
 					
+				eta_min = int(eta/60) if int(eta/60)>=10 else "0"+str(int(eta/60))
+				eta_sec = int(eta%60) if int(eta%60)>=10 else "0"+str(int(eta%60))
+				if eta_min == "00" and eta_sec == "00":
+					eta_text = "∞"
+				else:
+					eta_text = "{}:{}".format(eta_min,eta_sec)
+				if percent == 100:
+					eta_text = "00:00"
+					
+				if progress:
+					if style == 1:
+						sys.stdout.write("\r[{}{}]{} {}％ {}/s eta {}     ".format('=' * done, ' ' * (50-done), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
+					if style == 2:
+						sys.stdout.write("\r{}/{} {}％ {}/s eta {}     ".format(human_size(dl), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
+					sys.stdout.flush()
 
 		
 def archiver(files, hide=False, to_path=False, comment=None):
@@ -761,14 +766,9 @@ def start_up():
 main_dir = "Transfer"
 port = 8765
 main_dir = to_abs_path(main_dir)
-
-
-if pythonista:
-	console.clear()
 	
 if not os.path.isdir(main_dir):
 	os.makedirs(main_dir)
-	
 	
 transfer = Transfer(main_dir, port)
 port_scan = Port_Scan(port,False)
@@ -776,7 +776,7 @@ port_scan = Port_Scan(port,False)
 if __name__ == '__main__':
 	args = sys.argv
 	if pythonista:
-	
+		#Pythonista
 		if len(args) > 1 and args[1] == 'select':
 			select()
 			
@@ -829,6 +829,7 @@ if __name__ == '__main__':
 			transfer.send(files)
 			
 		else:
+			#PC
 			print('Dir {}'.format(main_dir))
 			print('1 : Send file\n2 : Receive file or text\n3 : Share text')
 			result = raw_input()
