@@ -1,6 +1,16 @@
 #!/usr/bin/env python2
 # coding: utf-8
 
+'''
+Transfer helps you transfer data from Pythonista to Pythonista and PC to Pythonista and PC to PC.
+
+Your devices must be in the same network
+
+Adding shortcuts makes it easy to use.
+See image files in https://github.com/nekotaroneko/Transfer
+
+'''
+
 import os,sys
 import zipfile
 import socket
@@ -363,6 +373,7 @@ class Transfer(object):
 			os.remove(self.send_path)
 		
 	def send(self, file_list):
+		if pythonista: console.set_idle_timer_disabled(True)
 		print('Archiving files.....')
 		if pythonista:
 			self.comment_dict['sender_is_pythonista'] = True
@@ -371,9 +382,10 @@ class Transfer(object):
 		comment_str = json.dumps(self.comment_dict)
 		archiver(file_list, True, self.send_path, comment_str)
 	
-		self.start_server() 
+		self.start_server()
 		
 	def receive(self, wait_time, show_text=True):
+		if pythonista: console.set_idle_timer_disabled(True)
 		main_dir = self.main_dir
 
 		if os.path.isfile(self.receive_path):
@@ -397,7 +409,6 @@ class Transfer(object):
 		print 'Detected!!\nServer IP is ' + IP
 		target_url = 'http://{}:{}/{}'.format(IP, port, os.path.relpath(self.send_path, to_abs_path()))
 		downloader(target_url, self.receive_path)
-		print('\n-----Detailed Log-----\n')
 		if os.path.exists(self.receive_path):
 			if pythonista:
 				console.hud_alert('Transfer Completed!!')
@@ -405,8 +416,10 @@ class Transfer(object):
 				os.makedirs(to_extract_path)
 			zip = zipfile.ZipFile(self.receive_path)
 			receive_comment_dict = json.loads(zip.comment)
+			print('\nExtracting.....')
 			zip.extractall(to_extract_path)
 			os.remove(self.receive_path)
+			print('-----Detailed Log-----\n')
 			
 			if 'share_text' in receive_comment_dict:
 				share_text = receive_comment_dict['share_text']
@@ -414,7 +427,7 @@ class Transfer(object):
 					clipboard.set(share_text)
 					console.hud_alert('Copied to clipboard')
 				else:
-					print('Share text "{}"'.format(share_text))
+					print('Share text \n"\n{}\n"'.format(share_text))
 				removeEmptyFolders(to_extract_path, True)
 			
 				
@@ -709,9 +722,9 @@ def downloader(url, file_path, progress=True, style=1):
 					
 				if progress:
 					if style == 1:
-						sys.stdout.write("\r[{}{}]{} {}％ {}/s eta {}     ".format('=' * done, ' ' * (50-done), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
+						sys.stdout.write("\r[{}{}]{} {}% {}/s {} ".format('=' * done, ' ' * (50-done), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
 					if style == 2:
-						sys.stdout.write("\r{}/{} {}％ {}/s eta {}     ".format(human_size(dl), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
+						sys.stdout.write("\r{}/{} {}％ {}/s {} ".format(human_size(dl), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
 					sys.stdout.flush()
 
 		
@@ -831,7 +844,7 @@ if __name__ == '__main__':
 		else:
 			#PC
 			print('Dir {}'.format(main_dir))
-			print('1 : Send file\n2 : Receive file or text\n3 : Share text')
+			print('1 : Send file\n2 : Receive file/text\n3 : Share text')
 			result = raw_input()
 			if result == '1':
 				print('You can also use Transfer.py file1 file2 file3...')
