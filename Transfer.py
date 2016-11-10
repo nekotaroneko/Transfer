@@ -51,11 +51,11 @@ def stash_installer():
 	
 def to_abs_path(*value):
 	import os, sys
-	if 'Pythonista' in sys.executable:
+	if pythonista:
 		abs_path = os.path.join(os.path.expanduser('~'),'Documents')
 	else:
-		abs_path = os.getcwd()
-		
+		abs_path = os.path.expanduser('~')
+	
 	for _value in value:
 		abs_path = os.path.join(abs_path,_value)
 	return abs_path
