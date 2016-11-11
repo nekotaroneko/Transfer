@@ -23,6 +23,14 @@ import Transfer
 Transfer.start_up()
 ~~~~
 
+#How to install
+```
+import requests as r; exec(r.get('https://raw.githubusercontent.com/nekotaroneko/Transfer/master/Installer.py').text)
+```
+Simply copy the above line, paste into Pythonista interactive prompt and
+execute.
+
+
 #How to set up
 1.Make three shortcuts
 

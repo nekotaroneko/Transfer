@@ -445,7 +445,7 @@ class Transfer(object):
 						if os.path.isdir(transfer_path):
 							if not os.path.isdir(original_path):
 								os.makedirs(original_path)
-								print 'dir {} was made'.format(os.path.relpath(original_path, to_abs_path()))
+								print 'dir {} was creadted'.format(os.path.relpath(original_path, to_abs_path()))
 								
 								
 						else:
