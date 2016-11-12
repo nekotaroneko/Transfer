@@ -22,6 +22,7 @@ import threading
 import time
 import requests
 import json
+import platform
 import SimpleHTTPServer
 
 def is_pythonista():
@@ -375,10 +376,12 @@ class Transfer(object):
 	def send(self, file_list):
 		if pythonista: console.set_idle_timer_disabled(True)
 		print('Archiving files.....')
+		system = platform.system()
 		if pythonista:
-			self.comment_dict['sender_is_pythonista'] = True
+			sender = 'Pythonista'
 		else:
-			self.comment_dict['sender_is_pythonista'] = False
+			sender = system
+		self.comment_dict['sender'] = sender
 		comment_str = json.dumps(self.comment_dict)
 		archiver(file_list, True, self.send_path, comment_str)
 	
@@ -403,11 +406,11 @@ class Transfer(object):
 		except KeyboardInterrupt:
 			raise KeyboardInterrupt
 			
-		d = datetime.datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+		d = datetime.datetime.today().strftime("%Y-%m-%d %H-%M-%S")
 		to_extract_path = to_abs_path(main_dir,d)
 		
 		print 'Detected!!\nServer IP is ' + IP
-		target_url = 'http://{}:{}/{}'.format(IP, port, os.path.relpath(self.send_path, to_abs_path()))
+		target_url = 'http://{}:{}/{}'.format(IP, port, os.path.relpath(self.send_path, to_abs_path()).replace("\\", "/")) #for windows
 		downloader(target_url, self.receive_path)
 		if os.path.exists(self.receive_path):
 			if pythonista:
@@ -418,8 +421,8 @@ class Transfer(object):
 			receive_comment_dict = json.loads(zip.comment)
 			print('\nExtracting.....')
 			zip.extractall(to_extract_path)
+			zip.close()
 			os.remove(self.receive_path)
-			print('-----Detailed Log-----\n')
 			
 			if 'share_text' in receive_comment_dict:
 				share_text = receive_comment_dict['share_text']
@@ -431,8 +434,9 @@ class Transfer(object):
 				removeEmptyFolders(to_extract_path, True)
 			
 				
-			elif receive_comment_dict['sender_is_pythonista'] and pythonista:
-				if console.alert("Transfer","Sender seems to be Pythonista\nMove to original path?","No","Yes",hide_cancel_button=True) == 2:
+			elif receive_comment_dict['sender'] == 'Pythonista' and pythonista:
+				if console.alert("Transfer","Sender is Pythonista\nMove to original path?","No","Yes",hide_cancel_button=True) == 2:
+					print('-----Detailed Log-----\n')
 					file_list = [ ( to_abs_path(os.path.relpath(x, to_extract_path)), x ) for x in return_all_file(to_extract_path) ]
 					total_file_list = [] #file not dir
 					
@@ -468,7 +472,12 @@ class Transfer(object):
 						re_file_path = os.path.relpath(ab_file_path, to_abs_path())
 						if console.alert("Transfer",'Do you want to open {}?'.format(re_file_path),"No","Yes",hide_cancel_button=True) == 2:
 							editor.open_file(ab_file_path, True)
-							
+			else:
+				if pythonista:
+					console.hud_alert('Sender is {}'.format(receive_comment_dict['sender']))
+				else:
+					print('Sender is {}'.format(receive_comment_dict['sender']))
+			print('Done!!')
 		else:
 			console.alert("Transfer","{} is not found".format(self.receive_path),"OK",hide_cancel_button=True)
 	
@@ -484,7 +493,7 @@ class Transfer(object):
 					t = threading.Thread(target = self.server.shutdown)
 					t.daemon = True
 					t.start()
-					print('File transfer seems to be completed.Server is shutdowning.....')
+					print('File transfer was completed.Server is shutdowning.....')
 					
 		def translate_path(self, path):
 			"""Translate a /-separated PATH to the local filename syntax.
@@ -533,17 +542,16 @@ class Transfer(object):
 		self.comment_dict['share_text'] = share_text
 		self.send([])
 
-def search_all_file(dir_list):
-	path_pat = re.compile('.+?Documents')
+def search_all_file(file_dir_list):
 	file_list = []
-	for _ in dir_list:
+	for _ in file_dir_list:
 		if os.path.isdir(_):
 			file_list.extend(return_all_file(_))
 		else:
 			file_list.append(_)
-	return [ [x,path_pat.sub("",x)] for x in file_list if not ".pyc" in x]
+	return file_list
 	
-def return_all_file(dir_path): #, mode='fd'): #mode: f(file) or d(dir) or fd(file and dir)
+def return_all_file(dir_path):
 	file_list = []
 	if os.path.isdir(dir_path):
 		while True:
@@ -733,13 +741,18 @@ def archiver(files, hide=False, to_path=False, comment=None):
 		to_path = os.path.basename(files[0])+'.zip'
 		
 	file_list = search_all_file(files)
+	path_pat = re.compile('.+?Documents')
+	path_arcname_list = [ [x, path_pat.sub("",x)] for x in file_list ]
 	with zipfile.ZipFile(to_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
 		if comment:
 			zf.comment = comment
-		for path,name in file_list:
+		
+		for path, arcname in path_arcname_list:
+			if len(file_list) == 1:
+				arcname = os.path.basename(path)
 			if not hide:
-				print("adding "+name)
-			zf.write(path,name)
+				print("adding "+arcname)
+			zf.write(path, arcname)
 			
 		
 def select():
@@ -751,7 +764,7 @@ def select():
 			transfer.send(files)
 			
 	elif result == 2:
-		transfer.receive(5)
+		transfer.receive(wait_interval)
 		
 
 	
@@ -770,7 +783,7 @@ def start_up():
 	'''always receive mode'''
 	def _start_up():
 		while True:
-			transfer.receive(5, False)
+			transfer.receive(wait_interval, False)
 	console.hide_output()
 	print 'Ready to receive.....'
 	threading.Thread(target=_start_up, name='Transfer_Startup').start()
@@ -778,6 +791,8 @@ def start_up():
 	
 main_dir = "Transfer"
 port = 8765
+wait_interval = 1 #sec
+
 main_dir = to_abs_path(main_dir)
 	
 if not os.path.isdir(main_dir):
@@ -799,7 +814,7 @@ if __name__ == '__main__':
 				transfer.send(files)
 				
 		elif len(args) > 1 and args[1] == 'receive':
-			transfer.receive(5)
+			transfer.receive(wait_interval)
 			
 		elif len(args) > 1 and args[1] == 'send_selected_or_clipboard_text':
 			share_text = get_selected_text()
@@ -836,6 +851,9 @@ if __name__ == '__main__':
 				else:
 					select()
 	else:
+		if platform.system() == 'Windows':
+			print('Do not contain multibyte character like Japanese or Chinese.It may fail.')
+			
 		if len(args) > 1:
 			files = args[1:]
 			print files
@@ -843,7 +861,7 @@ if __name__ == '__main__':
 			
 		else:
 			#PC
-			print('Dir {}'.format(main_dir))
+			print('Working Dir {}'.format(main_dir))
 			print('1 : Send file\n2 : Receive file/text\n3 : Share text')
 			result = raw_input()
 			if result == '1':
@@ -852,7 +870,7 @@ if __name__ == '__main__':
 				path = raw_input().strip().strip("'")
 				transfer.send([path])
 			elif result == '2':
-				transfer.receive(5, True)
+				transfer.receive(wait_interval, True)
 			elif result == '3':
 				print('Text>>')
 				text = raw_input()
