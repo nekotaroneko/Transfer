@@ -748,7 +748,7 @@ def archiver(files, hide=False, to_path=False, comment=None):
 			zf.comment = comment
 		
 		for path, arcname in path_arcname_list:
-			if len(file_list) == 1:
+			if not pythonista and len(file_list) == 1:
 				arcname = os.path.basename(path)
 			if not hide:
 				print("adding "+arcname)
@@ -791,7 +791,7 @@ def start_up():
 	
 main_dir = "Transfer"
 port = 8765
-wait_interval = 1 #sec
+wait_interval = 1 #sec multipl this value if something error happened
 
 main_dir = to_abs_path(main_dir)
 	
