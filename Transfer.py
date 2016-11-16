@@ -357,7 +357,7 @@ def human_size(size_bytes):
 		formatted_size = "%d" % num
 	else:
 		formatted_size = str(round(num, ndigits=precision))
-	return "%s%s" % (formatted_size, suffix)
+	return "%s %s" % (formatted_size, suffix)
 	
 #-----------------------Main Code--------------------
 
@@ -791,7 +791,7 @@ def start_up():
 	
 main_dir = "Transfer"
 port = 8765
-wait_interval = 1 #sec multipl this value if something error happened
+wait_interval = 1 #sec multiply this value if something error happened
 
 main_dir = to_abs_path(main_dir)
 	
