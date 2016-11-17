@@ -30,7 +30,7 @@ def is_pythonista():
 		return True
 	else:
 		return False
-		
+
 pythonista = is_pythonista()
 
 if pythonista:
@@ -372,16 +372,17 @@ class Transfer(object):
 		self.comment_dict['receive_path'] = self.receive_path #to multiply file size
 		if os.path.isfile(self.send_path):
 			os.remove(self.send_path)
+		system = platform.system()
+		if pythonista:
+			self.system = 'Pythonista'
+		else:
+			self.system = system
 		
 	def send(self, file_list):
 		if pythonista: console.set_idle_timer_disabled(True)
 		print('Archiving files.....')
-		system = platform.system()
-		if pythonista:
-			sender = 'Pythonista'
-		else:
-			sender = system
-		self.comment_dict['sender'] = sender
+		
+		self.comment_dict['sender'] = self.system
 		comment_str = json.dumps(self.comment_dict)
 		archiver(file_list, True, self.send_path, comment_str)
 	
@@ -420,7 +421,32 @@ class Transfer(object):
 			zip = zipfile.ZipFile(self.receive_path)
 			receive_comment_dict = json.loads(zip.comment)
 			print('\nExtracting.....')
-			zip.extractall(to_extract_path)
+			sender = receive_comment_dict['sender']
+			for _ in zip.infolist():
+				if sender == 'Windows':
+					_.filename = _.filename.decode('shift-jis', 'replace')
+				else:
+					_.filename = _.filename.decode('utf-8', 'replace')
+				try:
+					zip.extract(_, to_extract_path)
+				except:
+					new_filename = []
+					sep = '/' if not sender == 'Windows' else '//'
+					for split in _.filename.split(sep):
+						_split = re.sub(r'[\\|/|:|?|"|<|>|\|]', '-', split).strip()
+						new_filename.append(_split)
+					new_filename = sep.join(new_filename)
+					_.filename = new_filename
+					
+					try:
+						zip.extract(_, to_extract_path)
+
+					except Exception as e:
+						print 'Error {}'.format(_.filename)
+						print e
+					else:
+						print 'Renamed {}'.format(_.filename)
+			
 			zip.close()
 			os.remove(self.receive_path)
 			
@@ -477,6 +503,9 @@ class Transfer(object):
 					console.hud_alert('Sender is {}'.format(receive_comment_dict['sender']))
 				else:
 					print('Sender is {}'.format(receive_comment_dict['sender']))
+			if self.system == 'Windows':
+				os.system('explorer.exe {}'.format(to_extract_path))
+				
 			print('Done!!')
 		else:
 			console.alert("Transfer","{} is not found".format(self.receive_path),"OK",hide_cancel_button=True)
@@ -754,6 +783,9 @@ def archiver(files, hide=False, to_path=False, comment=None):
 				print("adding "+arcname)
 			zf.write(path, arcname)
 			
+		'''for _ in zf.infolist():
+			_.comment = _.filename.encode('utf-8')#encode('shift-jis', 'replace')'''
+			
 		
 def select():
 	result = console.alert("","Select","Send","Receive",'Cancel', hide_cancel_button=True)
@@ -851,23 +883,21 @@ if __name__ == '__main__':
 				else:
 					select()
 	else:
-		if platform.system() == 'Windows':
-			print('Do not contain multibyte character like Japanese or Chinese.It may fail.')
-			
+		#PC
 		if len(args) > 1:
 			files = args[1:]
 			print files
 			transfer.send(files)
 			
 		else:
-			#PC
+			
 			print('Working Dir {}'.format(main_dir))
 			print('1 : Send file\n2 : Receive file/text\n3 : Share text')
 			result = raw_input()
 			if result == '1':
 				print('You can also use Transfer.py file1 file2 file3...')
 				print('Path>>')
-				path = raw_input().strip().strip("'")
+				path = raw_input().strip().strip("'").strip('"')
 				transfer.send([path])
 			elif result == '2':
 				transfer.receive(wait_interval, True)
