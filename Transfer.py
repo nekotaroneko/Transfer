@@ -387,6 +387,8 @@ class Transfer(object):
 		archiver(file_list, True, self.send_path, comment_str)
 	
 		self.start_server()
+		if self.system == 'Windows':
+			os.system('pause')
 		
 	def receive(self, wait_time, show_text=True):
 		if pythonista: console.set_idle_timer_disabled(True)
@@ -455,6 +457,10 @@ class Transfer(object):
 				if pythonista:
 					clipboard.set(share_text)
 					console.hud_alert('Copied to clipboard')
+				elif self.system == 'Windows':
+					os.system('echo {}|clip'.format(share_text))
+					print('Copied to clipboard')
+					print('Share text \n"\n{}\n"'.format(share_text))
 				else:
 					print('Share text \n"\n{}\n"'.format(share_text))
 				removeEmptyFolders(to_extract_path, True)
@@ -503,10 +509,12 @@ class Transfer(object):
 					console.hud_alert('Sender is {}'.format(receive_comment_dict['sender']))
 				else:
 					print('Sender is {}'.format(receive_comment_dict['sender']))
-			if self.system == 'Windows':
+			if self.system == 'Windows' and not 'share_text' in receive_comment_dict:
 				os.system('explorer.exe {}'.format(to_extract_path))
 				
 			print('Done!!')
+			if self.system == 'Windows':
+				os.system('pause')
 		else:
 			console.alert("Transfer","{} is not found".format(self.receive_path),"OK",hide_cancel_button=True)
 	
