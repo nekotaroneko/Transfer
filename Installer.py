@@ -34,7 +34,7 @@ def downloader(url, file_path, progress=True, style=1):
 		f.write(response.content)
 		
 url = 'https://raw.githubusercontent.com/nekotaroneko/Transfer/master/Transfer.py'
-script_path = to_abs_path('site-packages-2/Transfer.py') if pythonista else os.path.join(os.getcwd(), 'Transfer.py')
+script_path = to_abs_path('site-packages/Transfer.py') if pythonista else os.path.join(os.getcwd(), 'Transfer.py')
 startup_path = to_abs_path('site-packages-2/pythonista_startup.py')
 
 if os.path.exists(script_path):

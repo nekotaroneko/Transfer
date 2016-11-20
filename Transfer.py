@@ -1,7 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # coding: utf-8
 
 '''
+Support Python 2 and 3
 Transfer helps you transfer data from Pythonista to Pythonista and PC to Pythonista and PC to PC.
 
 Your devices must be in the same network
@@ -23,7 +24,7 @@ import time
 import requests
 import json
 import platform
-import SimpleHTTPServer
+from six.moves import SimpleHTTPServer
 
 def is_pythonista():
 	if 'Pythonista' in sys.executable:
@@ -399,7 +400,7 @@ class Transfer(object):
 			
 		try:
 			while True:
-				if show_text: print 'Detecting Server.....'
+				if show_text: print('Detecting Server.....')
 				result = port_scan.scan()
 				if result:
 					IP = result
@@ -412,7 +413,7 @@ class Transfer(object):
 		d = datetime.datetime.today().strftime("%Y-%m-%d %H-%M-%S")
 		to_extract_path = to_abs_path(main_dir,d)
 		
-		print 'Detected!!\nServer IP is ' + IP
+		print('Detected!!\nServer IP is ' + IP)
 		target_url = 'http://{}:{}/{}'.format(IP, port, os.path.relpath(self.send_path, to_abs_path()).replace("\\", "/")) #for windows
 		downloader(target_url, self.receive_path)
 		if os.path.exists(self.receive_path):
@@ -421,7 +422,7 @@ class Transfer(object):
 			if not os.path.isdir(to_extract_path):
 				os.makedirs(to_extract_path)
 			zip = zipfile.ZipFile(self.receive_path)
-			receive_comment_dict = json.loads(zip.comment)
+			receive_comment_dict = json.loads(zip.comment.decode('utf-8'))
 			print('\nExtracting.....')
 			sender = receive_comment_dict['sender']
 			for _ in zip.infolist():
@@ -444,10 +445,10 @@ class Transfer(object):
 						zip.extract(_, to_extract_path)
 
 					except Exception as e:
-						print 'Error {}'.format(_.filename)
-						print e
+						print('Error {}'.format(_.filename))
+						print(e)
 					else:
-						print 'Renamed {}'.format(_.filename)
+						print('Renamed {}'.format(_.filename))
 			
 			zip.close()
 			os.remove(self.receive_path)
@@ -472,7 +473,7 @@ class Transfer(object):
 					file_list = [ ( to_abs_path(os.path.relpath(x, to_extract_path)), x ) for x in return_all_file(to_extract_path) ]
 					total_file_list = [] #file not dir
 					
-					#print file_list
+					#print(file_list
 					replace_list = []
 					for original_path, transfer_path in file_list:
 						if os.path.isfile(original_path):
@@ -481,13 +482,13 @@ class Transfer(object):
 						if os.path.isdir(transfer_path):
 							if not os.path.isdir(original_path):
 								os.makedirs(original_path)
-								print 'dir {} was creadted'.format(os.path.relpath(original_path, to_abs_path()))
+								print('dir {} was creadted'.format(os.path.relpath(original_path, to_abs_path())))
 								
 								
 						else:
 							if not os.path.isfile(original_path):
 								shutil.move(transfer_path, original_path)
-								print 'moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path()))
+								print('moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path())))
 								total_file_list.append(original_path)
 								
 					if not len(replace_list) == 0 and console.alert("Transfer","Following files will be replaced.\n{}".format('\n'.join([os.path.relpath(x, to_abs_path()) for x,y in replace_list])),"No","OK",hide_cancel_button=True) == 2:
@@ -495,7 +496,7 @@ class Transfer(object):
 							os.remove(original_path)
 							print('{} was removed'.format(os.path.relpath(original_path, to_abs_path())))
 							shutil.move(transfer_path, original_path)
-							print 'moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path()))
+							print('moved {} to {}'.format(os.path.relpath(transfer_path, to_abs_path()), os.path.relpath(original_path, to_abs_path())))
 							total_file_list.append(original_path)
 							
 					removeEmptyFolders(to_extract_path, True)
@@ -541,13 +542,13 @@ class Transfer(object):
 			
 			"""
 			import posixpath
-			import urllib
+			from six.moves.urllib_parse import unquote
 			# abandon query parameters
 			path = path.split('?',1)[0]
 			path = path.split('#',1)[0]
 			# Don't forget explicit trailing slash when normalizing. Issue17324
 			trailing_slash = path.rstrip().endswith('/')
-			path = posixpath.normpath(urllib.unquote(path))
+			path = posixpath.normpath(unquote(path))
 			words = path.split('/')
 			words = filter(None, words)
 			path = to_abs_path()
@@ -564,8 +565,12 @@ class Transfer(object):
 		SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET = do_GET
 		SimpleHTTPServer.SimpleHTTPRequestHandler.translate_path = translate_path
 		try:
-			server = SimpleHTTPServer.BaseHTTPServer.HTTPServer(('', self.port), SimpleHTTPServer.SimpleHTTPRequestHandler)
-		except:
+			if sys.version[0] == '2':
+				server = SimpleHTTPServer.BaseHTTPServer.HTTPServer(('', self.port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+			elif sys.version[0] == '3':
+				server = SimpleHTTPServer.HTTPServer(('', self.port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+		except Exception as e:
+			print(e)
 			print('Server has already started')
 		else:
 			thread = threading.Thread(target = server.serve_forever,name='server')
@@ -619,7 +624,7 @@ def removeEmptyFolders(path, removeRoot=True):
 	# if folder empty, delete it
 	files = os.listdir(path)
 	if len(files) == 0 and removeRoot:
-		#print "Removing empty folder:", path
+		#print("Removing empty folder:", path
 		os.rmdir(path)
 		
 
@@ -728,7 +733,7 @@ class Port_Scan(object):
 def downloader(url, file_path, progress=True, style=1):
 	_file_path = os.path.basename(file_path)
 	with open(file_path, "wb") as f:
-		print "Downloading %s" % _file_path
+		print("Downloading %s" % _file_path)
 		response = requests.get(url, stream=True)
 		total_length = response.headers.get('content-length')
 		
@@ -742,7 +747,7 @@ def downloader(url, file_path, progress=True, style=1):
 			dl_size_per_sec = 0
 			one_sec_passed = False
 			eta = 0
-			for data in response.iter_content(chunk_size=total_length/100):
+			for data in response.iter_content(chunk_size=int(total_length/100)):
 				dl += len(data)
 				f.write(data)
 				done = int(50 * dl / total_length)
@@ -782,7 +787,7 @@ def archiver(files, hide=False, to_path=False, comment=None):
 	path_arcname_list = [ [x, path_pat.sub("",x)] for x in file_list ]
 	with zipfile.ZipFile(to_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
 		if comment:
-			zf.comment = comment
+			zf.comment = comment.encode('utf-8')
 		
 		for path, arcname in path_arcname_list:
 			if not pythonista and len(file_list) == 1:
@@ -825,7 +830,7 @@ def start_up():
 		while True:
 			transfer.receive(wait_interval, False)
 	console.hide_output()
-	print 'Ready to receive.....'
+	print('Ready to receive.....')
 	threading.Thread(target=_start_up, name='Transfer_Startup').start()
 	
 	
@@ -865,7 +870,7 @@ if __name__ == '__main__':
 			
 		elif len(args) > 1:
 			files = args[1:]
-			print files
+			print(files)
 			transfer.send(files)
 			
 		else:
@@ -873,8 +878,8 @@ if __name__ == '__main__':
 				path = appex.get_file_paths()
 				if len(path) == 0:
 					path = appex.get_attachments()
-				#print appex.get_file_path()
-				print path
+				#print(appex.get_file_path()
+				print(path)
 				if not len(path) == 0:
 					if len(path) == 1 and not os.path.isfile(path[0]):
 						share_text = path[0]
@@ -894,7 +899,7 @@ if __name__ == '__main__':
 		#PC
 		if len(args) > 1:
 			files = args[1:]
-			print files
+			print(files)
 			transfer.send(files)
 			
 		else:

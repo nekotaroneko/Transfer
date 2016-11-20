@@ -15,7 +15,7 @@ You can share text
 3.Starting up
 
 Your device can be ready to receive when starting up.
-Add following code to site-packages-2/pythonista_startup.py *not 3 but 2*
+Add following code to site-packages-2/pythonista_startup.py *Transfer supporters Python 2 and 3*
 
 ~~~~
 import Transfer
