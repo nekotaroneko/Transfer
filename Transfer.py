@@ -344,7 +344,7 @@ def file_picker():
 	#File Picker
 	
 # http://stackoverflow.com/a/6547474
-def human_size(size_bytes):
+def human_size(size_bytes, no_suffixs=False):
 	'''Helper function for formatting human-readable file sizes'''
 	if size_bytes == 1:
 		return "1 byte"
@@ -358,7 +358,10 @@ def human_size(size_bytes):
 		formatted_size = "%d" % num
 	else:
 		formatted_size = str(round(num, ndigits=precision))
-	return "%s %s" % (formatted_size, suffix)
+	if not no_suffixs:
+		return "%s %s" % (formatted_size, suffix)
+	else:
+		return formatted_size
 	
 #-----------------------Main Code--------------------
 
@@ -774,7 +777,7 @@ def downloader(url, file_path, progress=True, style=1):
 					if style == 1:
 						sys.stdout.write("\r[{}{}]{} {}% {}/s {} ".format('=' * done, ' ' * (50-done), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
 					if style == 2:
-						sys.stdout.write("\r{}/{} {}％ {}/s {} ".format(human_size(dl), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
+						sys.stdout.write("\r{}/{} {}％ {}/s {} ".format(human_size(dl, True), human_size(total_length), percent, dl_speed if one_sec_passed else human_size(dl_size_per_sec), eta_text))
 					sys.stdout.flush()
 
 		
