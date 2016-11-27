@@ -176,8 +176,10 @@ def file_picker():
 			self.busy_view.alpha = 0.0
 			self.view.add_subview(self.busy_view)
 			self.done_btn = ui.ButtonItem(title='Done', action=self.done_action)
+			self.root_btn = ui.ButtonItem(title='Root', action=self.root_btn_action)
+			self.mobile_btn = ui.ButtonItem(title='Mobile', action=self.mobile_btn_action)
 			if self.allow_multi:
-				self.view.right_button_items = [self.done_btn]
+				self.view.right_button_items = [self.done_btn, self.mobile_btn, self.root_btn]
 			self.done_btn.enabled = False
 			self.root_node = root_node
 			self.entries = []
@@ -321,7 +323,19 @@ def file_picker():
 		def done_action(self, sender):
 			self.selected_entries = [self.flat_entries[i[1]] for i in self.table_view.selected_rows if self.flat_entries[i[1]].enabled]
 			self.view.close()
+		
+		def root_btn_action(self, sender):
+			root_node = FileTreeNode('/', True, True, r'^.+$')
+			self.root_node = root_node
+			self.expand_root()
+		
+		def mobile_btn_action(self, sender):
+			root_node = FileTreeNode('/var/mobile', True, True, r'^.+$')
+			self.root_node = root_node
+			self.expand_root()
 			
+		
+	
 	def file_picker_dialog(title=None, root_dir=None, multiple=False,
 	select_dirs=False, file_pattern=None, show_size=True):
 		if root_dir is None:
@@ -331,6 +345,7 @@ def file_picker():
 		root_node = FileTreeNode(root_dir, show_size, select_dirs, file_pattern)
 		root_node.title = title or ''
 		picker = TreeDialogController(root_node, allow_multi=multiple)
+		
 		picker.view.present('sheet')
 		picker.view.wait_modal()
 		if picker.selected_entries is None:
@@ -362,7 +377,8 @@ def human_size(size_bytes, no_suffixs=False):
 		return "%s %s" % (formatted_size, suffix)
 	else:
 		return formatted_size
-	
+		
+
 #-----------------------Main Code--------------------
 
 class Transfer(object):
