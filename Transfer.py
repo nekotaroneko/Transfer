@@ -328,7 +328,7 @@ def file_picker():
 			root_dir = os.path.expanduser('~/Documents')
 		if title is None:
 			title = os.path.split(root_dir)[1]
-		root_node = FileTreeNode(os.path.expanduser('~/Documents'), show_size, select_dirs, file_pattern)
+		root_node = FileTreeNode(root_dir, show_size, select_dirs, file_pattern)
 		root_node.title = title or ''
 		picker = TreeDialogController(root_node, allow_multi=multiple)
 		picker.view.present('sheet')
@@ -430,9 +430,9 @@ class Transfer(object):
 			sender = receive_comment_dict['sender']
 			for _ in zip.infolist():
 				if sender == 'Windows':
-					_.filename = _.filename.decode('shift-jis', 'replace')
+					_.filename = _.filename.encode('utf-8').decode('shift-jis', 'replace')
 				else:
-					_.filename = _.filename.decode('utf-8', 'replace')
+					_.filename = _.filename.encode('utf-8').decode('utf-8', 'replace')
 				try:
 					zip.extract(_, to_extract_path)
 				except:
@@ -853,7 +853,9 @@ if __name__ == '__main__':
 	args = sys.argv
 	if pythonista:
 		#Pythonista
-		if len(args) > 1 and args[1] == 'select':
+		if sys.version[0] == '3' and appex.is_widget():
+			start_up()
+		elif len(args) > 1 and args[1] == 'select':
 			select()
 			
 		elif len(args) > 1 and args[1] == 'send':
