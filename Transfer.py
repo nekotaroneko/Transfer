@@ -531,6 +531,10 @@ class Transfer(object):
 					print('Sender is {}'.format(receive_comment_dict['sender']))
 			if self.system == 'Windows' and not 'share_text' in receive_comment_dict:
 				os.system('explorer.exe {}'.format(to_extract_path))
+			
+			if self.system == 'Linux' and not 'share_text' in receive_comment_dict:
+				os.system('nautilus "{}"'.format(to_extract_path))
+			
 				
 			print('Done!!')
 			if self.system == 'Windows':
